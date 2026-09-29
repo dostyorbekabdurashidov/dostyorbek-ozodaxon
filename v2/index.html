@@ -360,6 +360,15 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
 /* Parallaks */
 .px{ transition:transform .25s ease-out; will-change:transform; }
 
+/* Birinchi suhbatdan beri hisoblagich */
+.since{ margin-top:1.4rem; padding-top:1rem; border-top:1px solid rgba(201,165,104,.5); }
+.since small{ font-family:var(--sans); font-size:.62rem; font-weight:700; letter-spacing:.2em; color:var(--muted); }
+.sn{ display:flex; justify-content:center; gap:.9rem; margin-top:.35rem; }
+.sn span{ display:flex; flex-direction:column; align-items:center; }
+.sn b{ font-family:var(--serif); font-weight:700; font-size:1.55rem; line-height:1.1; font-variant-numeric:tabular-nums lining-nums; background:linear-gradient(100deg,#7A5A22,#C9A04F,#8A6A2F); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.sn i{ font-style:normal; font-family:var(--sans); font-size:.6rem; font-weight:600; color:var(--muted); letter-spacing:.06em; }
+.st b{ font-size:1.7rem; }
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 </head>
@@ -410,6 +419,14 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
       <p class="text" style="margin-top:.8rem">Aziz mehmonimiz bo‘lib, quvonchimizga sherik bo‘ling!</p>
       <p class="family"><small>Hurmat ila,</small><strong class="gold-text">Yo‘ldosh Karimov xonadoni</strong></p>
       
+    </div>
+  </section>
+
+  <section class="slide tall" aria-label="Muhabbat tarixi">
+    <div class="inner">
+      <h2 class="title gold-text">Bizning hikoyamiz</h2>
+      <div class="story"><div class="st" style="--k:0"><small>21-AVGUST 2023 · 22:36</small><b class="gold-text">Hammasi shu daqiqada boshlandi</b><p>Bir oddiy suhbat… va o‘sha kechadan boshlab dunyo boshqacha yorug‘ bo‘lib ketdi.</p></div><div class="st" style="--k:1"><small>UCH YIL</small><b class="gold-text">Har kun — yangi mo‘jiza</b><p>Son-sanoqsiz suhbatlar, kulgular va sabr bilan kutilgan uchrashuvlar. Har bir kun bizni bir-birimizga yanada yaqinlashtirdi.</p></div><div class="st" style="--k:2"><small>17-OKTYABR 2026 · 17:00</small><b class="gold-text">Va endi — bir umrga</b><p>O‘sha kechada boshlangan hikoyamizning eng go‘zal sahifasida yonimizda bo‘lishingizni istaymiz.</p></div></div>
+      <div class="since" id="since" data-t="2023-08-21T22:36:00+05:00"><small>BIRINCHI SUHBATIMIZDAN BERI</small><div class="sn"><span><b data-u="d">0</b><i>kun</i></span><span><b data-u="h">0</b><i>soat</i></span><span><b data-u="m">0</b><i>daqiqa</i></span><span><b data-u="s">0</b><i>soniya</i></span></div></div>
     </div>
   </section>
 
@@ -866,7 +883,14 @@ function dayMode(){
 }
 
 /* ---- Ishga tushirish ---- */
-initGallery(); initVoice(); dayMode(); loadWishes();
+function initSince(){
+  const el = $('since'); if (!el) return; const t0 = new Date(el.dataset.t).getTime(), u = {};
+  el.querySelectorAll('[data-u]').forEach(b => u[b.dataset.u] = b);
+  const f = () => { const d = Math.max(0, Date.now() - t0);
+    u.d.textContent = String(Math.floor(d / 864e5)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); u.h.textContent = Math.floor(d / 36e5) % 24; u.m.textContent = Math.floor(d / 6e4) % 60; u.s.textContent = Math.floor(d / 1e3) % 60; };
+  f(); setInterval(f, 1000);
+}
+initGallery(); initVoice(); dayMode(); loadWishes(); initSince();
 
 </script>
 </body>
