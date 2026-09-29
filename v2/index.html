@@ -391,6 +391,10 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
 
 .sent-note{ margin:-.2rem 0 .9rem; padding:.45rem .7rem; font-family:var(--sans); font-size:.72rem; font-weight:700; color:#5E7A3A; background:rgba(122,160,80,.1); border:1px solid rgba(122,160,80,.35); text-align:center; }
 
+/* Devor endi JS bilan boshqariladi */
+.wall .track{ animation:none !important; will-change:transform; }
+.slide.in .wall .wcard{ animation:none !important; }
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 </head>
@@ -768,7 +772,7 @@ form.addEventListener('submit', e => {
   try { localStorage.setItem('rsvp-do', JSON.stringify({ a: answer })); } catch(e){}
   showDone(answer); if (navigator.vibrate) navigator.vibrate(30);
   if (answer === 'yes') celebrate(1);
-  if (wish){ myWish = { name, wish, t: Date.now() }; addWish(myWish); wallCount = -2; renderWall(); }
+  if (wish){ myWish = { name, wish, t: Date.now() }; addWish(myWish); renderWall(true); }
   setTimeout(() => { const i = slideEls.findIndex(s => s.getAttribute('aria-label') === 'Tilaklar'); if (i >= 0) go(i); }, 2200);
 });
 /* ================= PREMIUM v2 ================= */
@@ -927,25 +931,50 @@ function initVoice(){
 
 /* ---- Tilaklar devori ---- */
 const wallItems = new Map();
-let wallCount = -1, myWish = null;
-function renderWall(){
+let wallCount = -1, myWish = null, wallRaf = 0, wallTimers = [];
+// Tilaklar devori — to'liq JavaScript bilan: telefonda "animatsiyalarni kamaytirish" yoqilgan bo'lsa ham ishlaydi
+function renderWall(force){
   const wall = $('wall'); if (!wall) return;
   const list = [...wallItems.values()].sort((x, y) => (y.t || 0) - (x.t || 0));
-  if (list.length === wallCount) return; // o'zgarmagan bo'lsa qayta chizmaymiz (aylanish uzilmasin)
-  const fresh = wallCount >= 0 && list.length > wallCount; wallCount = list.length;
-  if (fresh){ wall.classList.remove('pop'); void wall.offsetWidth; wall.classList.add('pop'); }
+  if (!force && list.length === wallCount) return;
+  wallCount = list.length;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  cancelAnimationFrame(wallRaf); wallTimers.forEach(clearTimeout); wallTimers = [];
   if (!list.length){ wall.innerHTML = '<p class="wall-empty">Birinchi bo‘lib ezgu tilak yozing — u shu yerda paydo bo‘ladi ✨</p>'; return; }
   const mine = myWish && list.find(w => w.name === myWish.name && w.wish === myWish.wish);
   const ordered = mine ? [mine, ...list.filter(w => w !== mine)] : list;
-  const card = (w, i, dup) => `<div class="wcard${w === mine && !dup ? ' mine' : ''}" style="--k:${dup ? 0 : i}"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`;
-  const many = ordered.length > 3, n = ordered.length;
-  wall.innerHTML = `<div class="track${many ? '' : ' still'}" style="--dur:${Math.max(18, n * 7)}s;--start:${(n * .45 + 1.2).toFixed(2)}s">${ordered.map((w, i) => card(w, i)).join('')}${many ? ordered.map((w, i) => card(w, i, 1)).join('') : ''}</div>`;
-  const sl = wall.closest('.slide'); if (sl && sl.classList.contains('in')){ sl.classList.remove('in'); void sl.offsetWidth; sl.classList.add('in'); }
+  const card = (w, dup) => `<div class="wcard${w === mine && !dup ? ' mine' : ''}"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`;
+  wall.innerHTML = `<div class="track">${ordered.map(w => card(w)).join('')}</div>`;
+  const sl = wall.closest('.slide');
+  if (sl && sl.classList.contains('in')) playWall(); else wall.dataset.pending = '1';
 }
-function addWish(w){ if (w && w.wish && !/^🧪|sinov/i.test(w.name)) wallItems.set((w.name + '|' + w.wish).toLowerCase(), w); }
+function playWall(){
+  const wall = $('wall'), track = wall && wall.querySelector('.track'); if (!track) return;
+  wall.dataset.pending = ''; cancelAnimationFrame(wallRaf); wallTimers.forEach(clearTimeout); wallTimers = [];
+  track.querySelectorAll('.wcard.dup').forEach(c => c.remove()); track.style.transform = '';
+  const cards = [...track.children];
+  cards.forEach(c => { c.style.opacity = 0; c.style.transform = 'translateY(22px) scale(.96)'; });
+  cards.forEach((c, i) => wallTimers.push(setTimeout(() => {
+    c.animate([{ opacity:0, transform:'translateY(22px) scale(.96)' }, { opacity:1, transform:'none' }], { duration:750, easing:'cubic-bezier(.2,.7,.2,1)', fill:'forwards' });
+    c.style.opacity = 1; c.style.transform = 'none';
+  }, 350 + i * 520)));
+  // hammasi chiqqach — sekin uzluksiz yuqoriga suriladi (agar sig'masa)
+  wallTimers.push(setTimeout(() => {
+    const H = wall.clientHeight, h1 = track.scrollHeight;
+    if (h1 <= H - 10) return;
+    cards.forEach(c => { const d = c.cloneNode(true); d.classList.add('dup'); d.classList.remove('mine'); d.style.opacity = 1; d.style.transform = 'none'; track.appendChild(d); });
+    const gap = parseFloat(getComputedStyle(track).rowGap) || 12, loopH = h1 + gap;
+    let y = 0, last = performance.now();
+    (function step(now){ const dt = Math.min(64, now - last); last = now; y = (y + dt * .028) % loopH; track.style.transform = `translate3d(0,${-y}px,0)`; wallRaf = requestAnimationFrame(step); })(last);
+  }, 350 + cards.length * 520 + 900));
+}
+// Tilaklar bo'limiga kirilganda devor qaytadan birma-bir o'ynaydi
+new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && document.body.classList.contains('opened')) playWall(); }), { root: slides, threshold: .45 })
+  .observe(document.querySelector('[aria-label="Tilaklar"]'));
+function addWish(w){ if (!w || !w.wish || /^🧪|sinov/i.test(w.name)) return; const k = (w.name + '|' + w.wish).toLowerCase(); if (!HIDDEN.has(k)) wallItems.set(k, w); }
 async function loadWishes(){
   if (!$('wall')) return;
+  try { HIDDEN = new Set((await (await fetch('hidden.json?' + Date.now())).json()).map(x => x.toLowerCase())); } catch(e){}
   try { (await (await fetch('wishes.json?' + Date.now())).json()).forEach(addWish); } catch(e){}
   try { ((await (await fetch(API + '/wishes', { mode:'cors' })).json()).wishes || []).forEach(addWish); } catch(e){}
   renderWall();
