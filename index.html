@@ -585,11 +585,11 @@ form.addEventListener('submit', async e => {
   try {
     const r = await fetch(API, { method:'POST', mode:'cors', headers:{ 'Content-Type':'application/json' }, signal:ctl.signal,
       body: JSON.stringify({ name, coming: answer === 'yes', count, wish: $('r-wish').value.trim(), invite: 'Do‘styorbek & Ozoda' }) });
-    if (!r.ok) throw new Error(r.status);
+    if (!r.ok) throw Object.assign(new Error('http'), { status: r.status });
     try { localStorage.setItem('rsvp-do', JSON.stringify({ a: answer })); } catch(e){}
     showDone(answer); if (answer === 'yes') burst();
   } catch(e){
-    err.textContent = 'Yuborilmadi. Internetni tekshirib, qayta urinib ko‘ring.';
+    err.textContent = e.status ? (e.status === 429 ? 'Juda ko‘p urinish bo‘ldi. Birozdan so‘ng qayta urinib ko‘ring.' : 'Kechirasiz, hozir javob qabul qilinmadi. Birozdan so‘ng qayta urinib ko‘ring.') : 'Yuborilmadi. Internetni tekshirib, qayta urinib ko‘ring.';
   } finally { clearTimeout(to); btn.disabled = false; lbl.textContent = 'Javobni yuborish'; }
 });
 </script>
