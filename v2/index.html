@@ -389,6 +389,8 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
 .wcard.mine{ border-color:#C9A568; box-shadow:0 0 0 3px rgba(232,200,120,.35), 0 14px 26px -16px rgba(120,90,40,.9); }
 .wcard.mine::before{ content:"✦ Sizning tilagingiz"; display:block; font-family:var(--sans); font-size:.6rem; font-weight:800; letter-spacing:.14em; color:var(--gold); margin-bottom:.25rem; }
 
+.sent-note{ margin:-.2rem 0 .9rem; padding:.45rem .7rem; font-family:var(--sans); font-size:.72rem; font-weight:700; color:#5E7A3A; background:rgba(122,160,80,.1); border:1px solid rgba(122,160,80,.35); text-align:center; }
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 </head>
@@ -732,7 +734,8 @@ function showDone(ans){
   $('r-done-title').textContent = ans === 'yes' ? 'Rahmat!' : 'Rahmat!';
   $('r-done-text').textContent = ans === 'yes' ? 'Javobingiz qabul qilindi. Sizni to‘yimizda kutamiz!' : 'Javobingiz qabul qilindi. Ezgu tilaklaringiz uchun rahmat!';
 }
-try { const s = JSON.parse(localStorage.getItem('rsvp-do') || 'null'); if (s) showDone(s.a); } catch(e){}
+// Forma har doim ko'rinadi; oldin yuborgan bo'lsa — faqat kichik eslatma
+try { if (JSON.parse(localStorage.getItem('rsvp-do') || 'null')){ const n = document.createElement('p'); n.className = 'sent-note'; n.textContent = '✓ Javobingiz qabul qilingan — xohlasangiz yana yuborishingiz mumkin'; form.querySelector('.fields').prepend(n); } } catch(e){}
 $('r-again').onclick = () => { form.classList.remove('sent'); $('r-done').classList.remove('show'); };
 /* Javob: darhol "Rahmat" — yuborish fonda, uzilsa telefonda saqlanib qayta yuboriladi */
 const OUTBOX = 'rsvp-outbox';
