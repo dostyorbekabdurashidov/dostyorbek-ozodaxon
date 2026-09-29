@@ -725,6 +725,9 @@ $('addcal').addEventListener('click', () => {
 /* ---- Javob (RSVP) → Telegram ---- */
 const API = 'https://inject.royalmed.uk/api/rsvp';
 fetch(API + '/ping', { mode:'cors' }).catch(()=>{}); // bepul serverni oldindan uyg'otish
+// Ko'rishlar hisoblagichi (har telefon bir marta noyob hisoblanadi)
+try { let vid = localStorage.getItem('vid'); if (!vid){ vid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); localStorage.setItem('vid', vid); }
+  fetch(API + '/view', { method:'POST', mode:'cors', keepalive:true, headers:{ 'Content-Type':'text/plain' }, body: JSON.stringify({ v: vid }) }).catch(()=>{}); } catch(e){}
 const form = $('rsvp'); let answer = null, count = 1;
 if (guest) $('r-name').value = guest;
 form.querySelectorAll('.choice button').forEach(b => b.addEventListener('click', () => {
