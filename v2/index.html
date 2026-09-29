@@ -590,7 +590,7 @@ document.addEventListener('visibilitychange', () => { if (muted || !document.bod
 $('seal').addEventListener('click', () => {
   if (navigator.vibrate) navigator.vibrate([18, 40, 28, 40, 60]);
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){} // iPhone: jim rejim/Web Audio musiqani o'chirib qo'ymasin
-  playMusic(); setTimeout(chime, 60);
+  playMusic(); // faqat kelin-kuyov tanlagan musiqa (Çalıkuşu) — qo'shimcha tovush yo'q
   setTimeout(() => { if (bgm.paused && !muted) bgm.play().catch(() => {}); }, 1200);
   if (!reduce) crackSeal();
   setTimeout(() => gate.classList.add('open'), reduce ? 0 : 380);
