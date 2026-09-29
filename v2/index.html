@@ -369,6 +369,18 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
 .sn i{ font-style:normal; font-family:var(--sans); font-size:.6rem; font-weight:600; color:var(--muted); letter-spacing:.06em; }
 .st b{ font-size:1.7rem; }
 
+/* Muhr ochilishi: oltin nur + halqalar */
+.gate.open .seal{ animation:none; }
+.seal-flash{ position:fixed; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; z-index:4; pointer-events:none;
+  background:radial-gradient(circle, rgba(255,250,230,1) 0, rgba(255,232,170,.85) 30%, rgba(240,212,140,0) 70%); animation:sflash 1.3s cubic-bezier(.2,.7,.2,1) forwards; }
+@keyframes sflash{ 0%{ transform:scale(1); opacity:0; } 25%{ opacity:1; } 100%{ transform:scale(70); opacity:0; } }
+.seal-ring{ position:fixed; width:130px; height:130px; margin:-65px 0 0 -65px; border-radius:50%; z-index:4; pointer-events:none; border:2px solid rgba(232,200,120,.95);
+  box-shadow:0 0 18px rgba(240,212,140,.8), inset 0 0 12px rgba(240,212,140,.6); opacity:0; animation:sring 1.3s cubic-bezier(.2,.7,.2,1) forwards; }
+@keyframes sring{ 0%{ transform:scale(.6); opacity:0; } 15%{ opacity:1; } 100%{ transform:scale(3.4); opacity:0; border-width:.5px; } }
+
+.wall.pop .wcard:first-child{ animation:wishIn 1.2s cubic-bezier(.2,.7,.2,1); }
+@keyframes wishIn{ 0%{ transform:scale(.85); opacity:0; box-shadow:0 0 0 0 rgba(232,200,120,.9); } 60%{ opacity:1; box-shadow:0 0 0 10px rgba(232,200,120,0); } 100%{ transform:none; } }
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 </head>
@@ -593,7 +605,7 @@ $('seal').addEventListener('click', () => {
   playMusic(); // faqat kelin-kuyov tanlagan musiqa (Çalıkuşu) — qo'shimcha tovush yo'q
   setTimeout(() => { if (bgm.paused && !muted) bgm.play().catch(() => {}); }, 1200);
   if (!reduce) crackSeal();
-  setTimeout(() => gate.classList.add('open'), reduce ? 0 : 380);
+  setTimeout(() => gate.classList.add('open'), reduce ? 0 : 520);
   setTimeout(burst, reduce ? 0 : 1150);
   setTimeout(() => { document.body.classList.add('opened'); slideEls[0].classList.add('in'); startDust(); }, reduce ? 0 : 1800);
   setTimeout(initScratch, reduce ? 50 : 3200);
@@ -703,22 +715,39 @@ function showDone(ans){
 }
 try { const s = JSON.parse(localStorage.getItem('rsvp-do') || 'null'); if (s) showDone(s.a); } catch(e){}
 $('r-again').onclick = () => { form.classList.remove('sent'); $('r-done').classList.remove('show'); };
-form.addEventListener('submit', async e => {
+/* Javob: darhol "Rahmat" — yuborish fonda, uzilsa telefonda saqlanib qayta yuboriladi */
+const OUTBOX = 'rsvp-outbox';
+const obGet = () => { try { return JSON.parse(localStorage.getItem(OUTBOX) || '[]'); } catch(e){ return []; } };
+const obSet = a => { try { localStorage.setItem(OUTBOX, JSON.stringify(a)); } catch(e){} };
+async function sendOne(p){
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(API, { method:'POST', mode:'cors', keepalive:true, headers:{ 'Content-Type':'text/plain' }, body: JSON.stringify(p), signal:ctl.signal });
+    return r.ok || r.status === 400;
+  } catch(e){ return false; } finally { clearTimeout(to); }
+}
+let flushing = false;
+async function flush(attempt = 0){
+  if (flushing) return; flushing = true;
+  for (const p of obGet()){ if (await sendOne(p)) obSet(obGet().filter(x => x.cid !== p.cid)); }
+  flushing = false;
+  if (obGet().length && attempt < 12) setTimeout(() => flush(attempt + 1), Math.min(60000, 2000 * 2 ** attempt));
+}
+addEventListener('online', () => flush()); flush();
+form.addEventListener('submit', e => {
   e.preventDefault();
   const name = $('r-name').value.trim(), err = $('r-err');
   if (!name){ err.textContent = 'Iltimos, ismingizni yozing'; $('r-name').focus(); return; }
   if (!answer){ err.textContent = 'Iltimos, “Kelaman” yoki “Kelolmayman”ni tanlang'; return; }
-  const btn = $('r-send'), lbl = btn.querySelector('span'); btn.disabled = true; lbl.textContent = 'Yuborilmoqda…'; err.textContent = '';
-  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 75000);
-  try {
-    const r = await fetch(API, { method:'POST', mode:'cors', headers:{ 'Content-Type':'application/json' }, signal:ctl.signal,
-      body: JSON.stringify({ name, coming: answer === 'yes', count, wish: $('r-wish').value.trim(), invite: 'Do‘styor & Ozoda (premium)' }) });
-    if (!r.ok) throw Object.assign(new Error('http'), { status: r.status });
-    try { localStorage.setItem('rsvp-do', JSON.stringify({ a: answer })); } catch(e){}
-    showDone(answer); if (answer === 'yes') celebrate(1); addWish({ name, wish: $('r-wish').value.trim(), t: Date.now() }); renderWall();
-  } catch(e){
-    err.textContent = e.status ? (e.status === 429 ? 'Juda ko‘p urinish bo‘ldi. Birozdan so‘ng qayta urinib ko‘ring.' : 'Kechirasiz, hozir javob qabul qilinmadi. Birozdan so‘ng qayta urinib ko‘ring.') : 'Yuborilmadi. Internetni tekshirib, qayta urinib ko‘ring.';
-  } finally { clearTimeout(to); btn.disabled = false; lbl.textContent = 'Javobni yuborish'; }
+  err.textContent = '';
+  const wish = $('r-wish').value.trim();
+  const p = { cid: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), name, coming: answer === 'yes', count, wish, invite: 'Do‘styor & Ozoda (premium)' };
+  obSet([...obGet(), p]); flush();
+  try { localStorage.setItem('rsvp-do', JSON.stringify({ a: answer })); } catch(e){}
+  showDone(answer); if (navigator.vibrate) navigator.vibrate(30);
+  if (answer === 'yes') celebrate(1);
+  if (wish){ addWish({ name, wish, t: Date.now() }); renderWall(); }
+  setTimeout(() => { const i = slideEls.findIndex(s => s.getAttribute('aria-label') === 'Tilaklar'); if (i >= 0) go(i); }, 2200);
 });
 /* ================= PREMIUM v2 ================= */
 const V2 = window.V2DATA || {};
@@ -747,28 +776,24 @@ function chime(){
   } catch(e){}
 }
 
-/* ---- Muhr sinishi ---- */
+/* ---- Muhr: yarqirab, nur halqalari bilan oltin uchqunlarga aylanadi ---- */
 function crackSeal(){
-  const seal = $('seal'), svg = seal.querySelector('svg').outerHTML;
-  const crack = document.createElement('div'); crack.className = 'crack';
-  crack.innerHTML = '<svg viewBox="0 0 120 120"><g fill="none" stroke="#5A3F14" stroke-width="1.6" stroke-linecap="round" opacity=".85"><path d="M60 14L56 34L63 47L57 60L64 76L59 94L62 108"/><path d="M57 60L38 56L22 63"/><path d="M57 60L78 55L99 58"/><path d="M63 47L74 36"/><path d="M64 76L80 86"/></g></svg>';
-  gate.appendChild(crack); requestAnimationFrame(() => crack.classList.add('on'));
-  const polys = ['0 0,52% 0,47% 28%,53% 39%,48% 50%,0 47%', '52% 0,100% 0,100% 48%,65% 46%,48% 50%,53% 39%,47% 28%',
-                 '0 47%,48% 50%,53% 63%,49% 78%,52% 100%,0 100%', '48% 50%,65% 46%,100% 48%,100% 100%,52% 100%,49% 78%,53% 63%'];
-  const dirs = [[-1,-1],[1,-1],[-1,1],[1,1]];
+  const seal = $('seal'), b = seal.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+  const flash = document.createElement('div'); flash.className = 'seal-flash'; flash.style.left = cx + 'px'; flash.style.top = cy + 'px'; gate.appendChild(flash);
+  [0, 160, 320].forEach(d => { const r = document.createElement('div'); r.className = 'seal-ring'; r.style.left = cx + 'px'; r.style.top = cy + 'px'; r.style.animationDelay = d + 'ms'; gate.appendChild(r); setTimeout(() => r.remove(), 1600 + d); });
+  seal.style.animation = 'none';
+  seal.animate([
+    { transform:'scale(1) rotate(0)', filter:'drop-shadow(0 10px 12px rgba(90,60,20,.42)) brightness(1)', opacity:1 },
+    { transform:'scale(1.16) rotate(-8deg)', filter:'drop-shadow(0 0 26px rgba(255,226,150,.95)) brightness(1.35)', opacity:1, offset:.35 },
+    { transform:'scale(.2) rotate(160deg)', filter:'drop-shadow(0 0 30px rgba(255,230,160,1)) brightness(1.8)', opacity:0 }
+  ], { duration:900, easing:'cubic-bezier(.5,0,.3,1)', fill:'forwards' });
   setTimeout(() => {
-    gate.classList.add('cracked'); crack.remove();
-    polys.forEach((p, i) => {
-      const s = document.createElement('div'); s.className = 'shard'; s.innerHTML = svg; s.style.clipPath = `polygon(${p})`; s.style.webkitClipPath = `polygon(${p})`;
-      gate.appendChild(s);
-      const [dx, dy] = dirs[i], r = (Math.random() * 50 + 30) * dx;
-      s.animate([{ transform:'translate(0,0) rotate(0)', opacity:1 },
-                 { transform:`translate(${dx * 70}px, ${dy * 40 - 30}px) rotate(${r * .5}deg)`, opacity:1, offset:.35 },
-                 { transform:`translate(${dx * 140}px, ${innerHeight * .75}px) rotate(${r}deg)`, opacity:0 }],
-                { duration:1500, easing:'cubic-bezier(.3,.1,.6,1)', fill:'forwards' });
-      setTimeout(() => s.remove(), 1600);
-    });
-  }, 330);
+    if (!reduce){ const { ctx } = FX;
+      for (let i = 0; i < 120; i++){ const a = Math.random() * 6.283, s = 1.5 + Math.random() * 7;
+        parts.push({ x:cx, y:cy, vx:Math.cos(a) * s, vy:Math.sin(a) * s - 1.5, g:.08, r:1 + Math.random() * 2.4, c:['#F2DFA4','#D9B96A','#FFF4D6','#E6C77E'][i % 4], life:1, d:.008 + Math.random() * .01, t:'s', rot:Math.random() * 6 }); }
+      if (!running){ running = true; requestAnimationFrame(loop); } }
+  }, 380);
+  setTimeout(() => flash.remove(), 1400);
 }
 
 /* ---- Parallaks: Android'da telefon qiyshayishi, boshqalarda barmoq/sichqoncha ---- */
@@ -857,9 +882,13 @@ function initVoice(){
 
 /* ---- Tilaklar devori ---- */
 const wallItems = new Map();
+let wallCount = -1;
 function renderWall(){
   const wall = $('wall'); if (!wall) return;
   const list = [...wallItems.values()].sort((x, y) => (y.t || 0) - (x.t || 0));
+  if (list.length === wallCount) return; // o'zgarmagan bo'lsa qayta chizmaymiz (aylanish uzilmasin)
+  const fresh = wallCount >= 0 && list.length > wallCount; wallCount = list.length;
+  if (fresh){ wall.classList.remove('pop'); void wall.offsetWidth; wall.classList.add('pop'); }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   if (!list.length){ wall.innerHTML = '<p class="wall-empty">Birinchi bo‘lib ezgu tilak yozing — u shu yerda paydo bo‘ladi ✨</p>'; return; }
   const cards = list.map(w => `<div class="wcard"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`).join('');
@@ -894,6 +923,8 @@ function initSince(){
   f(); setInterval(f, 1000);
 }
 initGallery(); initVoice(); dayMode(); loadWishes(); initSince();
+// Tilaklar devori jonli: har 25 soniyada yangi tilaklar tekshiriladi
+setInterval(() => { if (!document.hidden) loadWishes(); }, 25000);
 
 </script>
 </body>
