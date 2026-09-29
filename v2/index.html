@@ -589,7 +589,9 @@ document.addEventListener('visibilitychange', () => { if (muted || !document.bod
 /* ---- Darvozani ochish ---- */
 $('seal').addEventListener('click', () => {
   if (navigator.vibrate) navigator.vibrate([18, 40, 28, 40, 60]);
-  chime(); playMusic();
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){} // iPhone: jim rejim/Web Audio musiqani o'chirib qo'ymasin
+  playMusic(); setTimeout(chime, 60);
+  setTimeout(() => { if (bgm.paused && !muted) bgm.play().catch(() => {}); }, 1200);
   if (!reduce) crackSeal();
   setTimeout(() => gate.classList.add('open'), reduce ? 0 : 380);
   setTimeout(burst, reduce ? 0 : 1150);
@@ -725,6 +727,7 @@ const V2 = window.V2DATA || {};
 let actx;
 function chime(){
   try {
+    if (!('audioSession' in navigator) && /iPhone|iPad|iPod/.test(navigator.userAgent)) return; // eski iOS: Web Audio <audio> musiqani jim qilib qo'yadi
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     const t0 = actx.currentTime, out = actx.createGain(); out.gain.value = .22; out.connect(actx.destination);
     [1046.5, 1318.5, 1568, 2093].forEach((f, i) => {
