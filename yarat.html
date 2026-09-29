@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light only">
+<title>Mehmonlar uchun havola</title>
+<link rel="icon" href="favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@500;600;700&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+:root{ --ivory:#FFFDF8; --ink:#4A3820; --muted:#8A7456; --gold:#B8913F; --line:#C9A568; }
+*{ box-sizing:border-box; margin:0; }
+body{ background:var(--ivory); color:var(--ink); font-family:"Manrope",system-ui,sans-serif; padding:28px 16px 60px; }
+.wrap{ max-width:520px; margin:0 auto; }
+h1{ font-family:"Pinyon Script",cursive; font-weight:400; font-size:2.6rem; text-align:center; color:var(--gold); line-height:1.2; }
+.sub{ text-align:center; color:var(--muted); font-size:.9rem; margin:.3rem 0 1.6rem; }
+label{ display:block; font-weight:700; font-size:.8rem; letter-spacing:.08em; color:var(--muted); margin-bottom:.4rem; }
+textarea{ width:100%; min-height:130px; padding:.8rem; font:500 1rem/1.5 "Manrope",sans-serif; color:var(--ink); background:#fff; border:1px solid var(--line); outline:none; resize:vertical; }
+textarea:focus{ box-shadow:0 0 0 3px rgba(201,165,104,.25); }
+.hint{ font-size:.8rem; color:var(--muted); margin-top:.35rem; }
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:.7rem 1.1rem; border:1px solid var(--line); background:#fff; color:var(--ink); font:700 .85rem "Manrope",sans-serif; cursor:pointer; text-decoration:none; }
+.btn.solid{ width:100%; margin-top:1rem; padding:.9rem; color:#fff; border-color:#A8832F; background:linear-gradient(135deg,#D8B462,#A57F34 60%,#C9A14E); }
+.list{ margin-top:1.6rem; display:flex; flex-direction:column; gap:.8rem; }
+.card{ border:1px solid var(--line); background:#fff; padding:.8rem .9rem; }
+.card b{ font-family:"Cormorant Garamond",serif; font-size:1.3rem; }
+.card code{ display:block; font-size:.74rem; color:var(--muted); word-break:break-all; margin:.25rem 0 .6rem; }
+.card .row{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.card .row .btn{ flex:1; }
+.tg{ background:#2AABEE !important; color:#fff !important; border-color:#2AABEE !important; }
+.general{ margin-top:2rem; padding-top:1.2rem; border-top:1px solid #E8D9B8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mehmonlar uchun havola</h1>
+  <p class="sub">Har bir mehmonga o‘z ismi yozilgan taklifnoma yuboring</p>
+
+  <label for="names">MEHMONLAR ISMI (har biri yangi qatorda)</label>
+  <textarea id="names" placeholder="Aziz aka&#10;Nodira opa&#10;Karimovlar oilasi"></textarea>
+  <p class="hint">Taklifnoma ochilganda “Hurmatli Aziz aka!” deb chiqadi.</p>
+  <button class="btn solid" id="make">Havolalarni yaratish</button>
+
+  <div class="list" id="list"></div>
+
+  <div class="general">
+    <label>UMUMIY HAVOLA (ismsiz)</label>
+    <div class="card"><b>Barcha mehmonlar uchun</b><code id="base"></code>
+      <div class="row"><button class="btn" data-copy="">Nusxa olish</button><a class="btn tg" data-tg="" target="_blank" rel="noopener">Telegramda yuborish</a></div></div>
+  </div>
+</div>
+<script>
+const BASE = new URL('./', location.href).href;
+const TEXT = 'Assalomu alaykum! Sizni Do‘styorbek va Ozodaxonning nikoh to‘yiga taklif etamiz. 17-oktyabr 2026, soat 17:00, “Abdulla Bobo” bazmgohi.';
+const link = n => n ? BASE + '?m=' + encodeURIComponent(n) : BASE;
+const tg = u => 'https://t.me/share/url?url=' + encodeURIComponent(u) + '&text=' + encodeURIComponent(TEXT);
+function wire(root){
+  root.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => {
+    const u = link(b.dataset.copy);
+    try { await navigator.clipboard.writeText(u); } catch(e){ const t = document.createElement('textarea'); t.value = u; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    const o = b.textContent; b.textContent = 'Nusxalandi ✓'; setTimeout(() => b.textContent = o, 1500);
+  });
+  root.querySelectorAll('[data-tg]').forEach(a => a.href = tg(link(a.dataset.tg)));
+}
+document.getElementById('base').textContent = BASE; wire(document.querySelector('.general'));
+function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function render(){
+  const names = document.getElementById('names').value.split('\n').map(s => s.trim()).filter(Boolean);
+  try { localStorage.setItem('mehmonlar', names.join('\n')); } catch(e){}
+  const list = document.getElementById('list');
+  list.innerHTML = names.map(n => `<div class="card"><b>${esc(n)}</b><code>${esc(link(n))}</code><div class="row"><button class="btn" data-copy="${esc(n)}">Nusxa olish</button><a class="btn tg" data-tg="${esc(n)}" target="_blank" rel="noopener">Telegramda yuborish</a><a class="btn" href="${esc(link(n))}" target="_blank" rel="noopener">Ko‘rish</a></div></div>`).join('');
+  wire(list);
+}
+document.getElementById('make').onclick = render;
+try { const s = localStorage.getItem('mehmonlar'); if (s){ document.getElementById('names').value = s; render(); } } catch(e){}
+</script>
+</body>
+</html>
