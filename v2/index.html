@@ -971,7 +971,8 @@ function playWall(){
 // Tilaklar bo'limiga kirilganda devor qaytadan birma-bir o'ynaydi
 new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && document.body.classList.contains('opened')) playWall(); }), { root: slides, threshold: .45 })
   .observe(document.querySelector('[aria-label="Tilaklar"]'));
-function addWish(w){ if (!w || !w.wish || /^🧪|sinov/i.test(w.name)) return; const k = (w.name + '|' + w.wish).toLowerCase(); if (!HIDDEN.has(k)) wallItems.set(k, w); }
+const ME = /do\W?st\W?yor|dostyor|дўстёр|дустёр|достёр/i; // kuyovning sinov tilaklari devorga chiqmaydi
+function addWish(w){ if (!w || !w.wish || /^🧪|sinov/i.test(w.name) || ME.test(w.name)) return; const k = (w.name + '|' + w.wish).toLowerCase(); if (!HIDDEN.has(k)) wallItems.set(k, w); }
 async function loadWishes(){
   if (!$('wall')) return;
   try { HIDDEN = new Set((await (await fetch('hidden.json?' + Date.now())).json()).map(x => x.toLowerCase())); } catch(e){}
