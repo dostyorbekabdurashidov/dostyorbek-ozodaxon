@@ -381,6 +381,14 @@ body.today .today-badge, body.after .today-badge{ display:inline-block; }
 .wall.pop .wcard:first-child{ animation:wishIn 1.2s cubic-bezier(.2,.7,.2,1); }
 @keyframes wishIn{ 0%{ transform:scale(.85); opacity:0; box-shadow:0 0 0 0 rgba(232,200,120,.9); } 60%{ opacity:1; box-shadow:0 0 0 10px rgba(232,200,120,0); } 100%{ transform:none; } }
 
+/* Tilaklar birma-bir paydo bo'ladi, keyin sekin aylanadi */
+.wall .wcard{ opacity:0; transform:translateY(18px) scale(.97); }
+.slide.in .wall .wcard{ animation:wcIn .8s cubic-bezier(.2,.7,.2,1) forwards; animation-delay:calc(.5s + var(--k) * .45s); }
+@keyframes wcIn{ to{ opacity:1; transform:none; } }
+.wall .track{ animation-delay:var(--start,2s); }
+.wcard.mine{ border-color:#C9A568; box-shadow:0 0 0 3px rgba(232,200,120,.35), 0 14px 26px -16px rgba(120,90,40,.9); }
+.wcard.mine::before{ content:"✦ Sizning tilagingiz"; display:block; font-family:var(--sans); font-size:.6rem; font-weight:800; letter-spacing:.14em; color:var(--gold); margin-bottom:.25rem; }
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js" defer></script>
 </head>
@@ -581,11 +589,22 @@ setTimeout(once, 3500);
 /* ---- Musiqa ---- */
 let muted = false;
 function toast(msg, ms=3200){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), ms); }
+let musicOn = false;
+function musicStarted(){ musicOn = true; muted = false; mBtn.classList.remove('muted'); mBtn.classList.add('show','playing'); }
+// Havola ochilishi bilan musiqa: brauzer ruxsat bersa darhol, bo'lmasa ekranga birinchi tegishda
+function earlyMusic(){
+  if (musicOn) return;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
+  bgm.play().then(() => { musicStarted(); ['pointerup','touchend','click','keydown'].forEach(ev => removeEventListener(ev, earlyMusic, true)); }).catch(() => {});
+}
+earlyMusic();
+['pointerup','touchend','click','keydown'].forEach(ev => addEventListener(ev, earlyMusic, true));
 function playMusic(){
+  if (musicOn && !bgm.paused) return;
   try { bgm.volume = 0; } catch(e){}
   bgm.currentTime = 0;
   bgm.play().then(() => {
-    mBtn.classList.add('show','playing');
+    musicStarted();
     let v = 0; const f = setInterval(() => { v = Math.min(.85, v + .04); try{ bgm.volume = v; }catch(e){} if (v >= .85) clearInterval(f); }, 110);
   }).catch(() => { mBtn.classList.add('show','muted'); muted = true; toast('Musiqani yoqish uchun ♪ tugmasini bosing'); });
 }
@@ -611,7 +630,7 @@ $('seal').addEventListener('click', () => {
   setTimeout(initScratch, reduce ? 50 : 3200);
 }, { once:true });
 const go = i => slideEls[i] && slides.scrollTo({ top: slideEls[i].offsetTop, behavior: reduce ? 'auto' : 'smooth' });
-document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => go(+b.dataset.go)));
+document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { if (+b.dataset.go === 1 && window.scratchGuard && window.scratchGuard()) return; go(+b.dataset.go); }));
 
 /* ---- Bo'limlar va nuqtalar ---- */
 const dots = slideEls.map((s, i) => { const b = document.createElement('button'); b.setAttribute('aria-label', (i+1) + '-bo‘lim'); b.addEventListener('click', () => go(i)); $('dots').appendChild(b); return b; });
@@ -746,7 +765,7 @@ form.addEventListener('submit', e => {
   try { localStorage.setItem('rsvp-do', JSON.stringify({ a: answer })); } catch(e){}
   showDone(answer); if (navigator.vibrate) navigator.vibrate(30);
   if (answer === 'yes') celebrate(1);
-  if (wish){ addWish({ name, wish, t: Date.now() }); renderWall(); }
+  if (wish){ myWish = { name, wish, t: Date.now() }; addWish(myWish); wallCount = -2; renderWall(); }
   setTimeout(() => { const i = slideEls.findIndex(s => s.getAttribute('aria-label') === 'Tilaklar'); if (i >= 0) go(i); }, 2200);
 });
 /* ================= PREMIUM v2 ================= */
@@ -832,12 +851,35 @@ function initScratch(){
   function check(){
     if (done) return; const d = ctx.getImageData(0, 0, cv.width, cv.height).data; let clear = 0, n = 0;
     for (let i = 3; i < d.length; i += 64){ n++; if (d[i] === 0) clear++; }
-    if (clear / n > .42){ done = true; cv.classList.add('gone'); hint.classList.add('gone'); if (navigator.vibrate) navigator.vibrate(30); celebrate(.6); }
+    if (clear / n > .42) finish();
   }
+  function finish(){ if (done) return; done = true; cv.classList.add('gone'); if (hint) hint.classList.add('gone'); if (navigator.vibrate) navigator.vibrate(30); celebrate(.6); }
+  // Tirnalmasa: oltin qatlam chapdan o'ngga nur bilan eriydi va sana ochiladi
+  scratchReveal = () => new Promise(res => {
+    if (done){ res(); return; }
+    ctx.globalCompositeOperation = 'destination-out'; const t0 = performance.now(), D = 900;
+    (function step(now){
+      const k = Math.min(1, (now - t0) / D), x = (W + 80) * k - 40;
+      const g2 = ctx.createLinearGradient(x - 60, 0, x + 20, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g2; ctx.fillRect(0, 0, Math.max(0, x + 20), H);
+      if (k < 1) requestAnimationFrame(step); else { finish(); setTimeout(res, 650); }
+    })(t0);
+  });
   cv.addEventListener('pointerdown', e => { down = true; last = null; cv.setPointerCapture(e.pointerId); scr(pos(e)); if (hint) hint.classList.add('gone'); });
   cv.addEventListener('pointermove', e => { if (down) scr(pos(e)); });
   ['pointerup','pointercancel','pointerleave'].forEach(t => cv.addEventListener(t, () => { down = false; last = null; check(); }));
 }
+let scratchReveal = null, scratchBusy = false;
+// Sanani ochmay keyingi bo'limga o'tmoqchi bo'lsa — avval sana ochiladi, keyin o'tadi
+window.scratchGuard = (target = 1) => {
+  if (!scratchReveal || scratchBusy || $('scratch').classList.contains('gone')) return false;
+  scratchBusy = true; slides.style.overflowY = 'hidden'; slides.scrollTo({ top: 0, behavior: 'auto' });
+  scratchReveal().then(() => { slides.style.overflowY = ''; scratchBusy = false; go(target); });
+  return true;
+};
+slides.addEventListener('scroll', () => {
+  if (slides.scrollTop > 12 && !scratchBusy) window.scratchGuard(Math.max(1, Math.round(slides.scrollTop / slides.clientHeight)));
+}, { passive:true });
 function roundRect(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 
 /* ---- Oltin mushaklar (Kelaman / sana ochilganda) ---- */
@@ -882,7 +924,7 @@ function initVoice(){
 
 /* ---- Tilaklar devori ---- */
 const wallItems = new Map();
-let wallCount = -1;
+let wallCount = -1, myWish = null;
 function renderWall(){
   const wall = $('wall'); if (!wall) return;
   const list = [...wallItems.values()].sort((x, y) => (y.t || 0) - (x.t || 0));
@@ -891,9 +933,12 @@ function renderWall(){
   if (fresh){ wall.classList.remove('pop'); void wall.offsetWidth; wall.classList.add('pop'); }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
   if (!list.length){ wall.innerHTML = '<p class="wall-empty">Birinchi bo‘lib ezgu tilak yozing — u shu yerda paydo bo‘ladi ✨</p>'; return; }
-  const cards = list.map(w => `<div class="wcard"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`).join('');
-  const many = list.length > 2;
-  wall.innerHTML = `<div class="track${many ? '' : ' still'}" style="--dur:${Math.max(16, list.length * 7)}s">${cards}${many ? cards : ''}</div>`;
+  const mine = myWish && list.find(w => w.name === myWish.name && w.wish === myWish.wish);
+  const ordered = mine ? [mine, ...list.filter(w => w !== mine)] : list;
+  const card = (w, i, dup) => `<div class="wcard${w === mine && !dup ? ' mine' : ''}" style="--k:${dup ? 0 : i}"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`;
+  const many = ordered.length > 3, n = ordered.length;
+  wall.innerHTML = `<div class="track${many ? '' : ' still'}" style="--dur:${Math.max(18, n * 7)}s;--start:${(n * .45 + 1.2).toFixed(2)}s">${ordered.map((w, i) => card(w, i)).join('')}${many ? ordered.map((w, i) => card(w, i, 1)).join('') : ''}</div>`;
+  const sl = wall.closest('.slide'); if (sl && sl.classList.contains('in')){ sl.classList.remove('in'); void sl.offsetWidth; sl.classList.add('in'); }
 }
 function addWish(w){ if (w && w.wish && !/^🧪|sinov/i.test(w.name)) wallItems.set((w.name + '|' + w.wish).toLowerCase(), w); }
 async function loadWishes(){
