@@ -956,11 +956,13 @@ function playWall(){
   wall.dataset.pending = ''; cancelAnimationFrame(wallRaf); wallTimers.forEach(clearTimeout); wallTimers = [];
   track.querySelectorAll('.wcard.dup').forEach(c => c.remove()); track.style.transform = '';
   const cards = [...track.children];
-  cards.forEach(c => { c.style.opacity = 0; c.style.transform = 'translateY(22px) scale(.96)'; });
-  cards.forEach((c, i) => wallTimers.push(setTimeout(() => {
+  // Faqat ko'rinib turgan dastlabki kartalar birma-bir chiqadi, qolganlari tayyor turadi
+  const FIRST = 4;
+  cards.forEach((c, i) => { if (i < FIRST){ c.style.opacity = 0; c.style.transform = 'translateY(22px) scale(.96)'; } else { c.style.opacity = 1; c.style.transform = 'none'; } });
+  cards.slice(0, FIRST).forEach((c, i) => wallTimers.push(setTimeout(() => {
     c.animate([{ opacity:0, transform:'translateY(22px) scale(.96)' }, { opacity:1, transform:'none' }], { duration:750, easing:'cubic-bezier(.2,.7,.2,1)', fill:'forwards' });
     c.style.opacity = 1; c.style.transform = 'none';
-  }, 350 + i * 520)));
+  }, 300 + i * 450)));
   // hammasi chiqqach — sekin uzluksiz yuqoriga suriladi (agar sig'masa)
   wallTimers.push(setTimeout(() => {
     const H = wall.clientHeight, h1 = track.scrollHeight;
@@ -968,8 +970,8 @@ function playWall(){
     cards.forEach(c => { const d = c.cloneNode(true); d.classList.add('dup'); d.classList.remove('mine'); d.style.opacity = 1; d.style.transform = 'none'; track.appendChild(d); });
     const gap = parseFloat(getComputedStyle(track).rowGap) || 12, loopH = h1 + gap;
     let y = 0, last = performance.now();
-    (function step(now){ const dt = Math.min(64, now - last); last = now; y = (y + dt * .028) % loopH; track.style.transform = `translate3d(0,${-y}px,0)`; wallRaf = requestAnimationFrame(step); })(last);
-  }, 350 + cards.length * 520 + 900));
+    (function step(now){ const dt = Math.min(64, now - last); last = now; y = (y + dt * .035) % loopH; track.style.transform = `translate3d(0,${-y}px,0)`; wallRaf = requestAnimationFrame(step); })(last);
+  }, 300 + Math.min(cards.length, FIRST) * 450 + 1000));
 }
 // Tilaklar bo'limiga kirilganda devor qaytadan birma-bir o'ynaydi
 new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && document.body.classList.contains('opened')) playWall(); }), { root: slides, threshold: .45 })
