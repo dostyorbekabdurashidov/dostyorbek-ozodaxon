@@ -934,7 +934,7 @@ function initVoice(){
 
 /* ---- Tilaklar devori ---- */
 const wallItems = new Map();
-let wallCount = -1, myWish = null, wallRaf = 0, wallTimers = [];
+let wallCount = -1, myWish = null, wallRaf = 0, wallTimers = [], wallAnim = null;
 // Tilaklar devori — to'liq JavaScript bilan: telefonda "animatsiyalarni kamaytirish" yoqilgan bo'lsa ham ishlaydi
 function renderWall(force){
   const wall = $('wall'); if (!wall) return;
@@ -949,32 +949,40 @@ function renderWall(force){
   const card = (w, dup) => `<div class="wcard${w === mine && !dup ? ' mine' : ''}"><p>“${esc(w.wish)}”</p><b>— ${esc(w.name)}</b></div>`;
   wall.innerHTML = `<div class="track">${ordered.map(w => card(w)).join('')}</div>`;
   const sl = wall.closest('.slide');
-  if (sl && sl.classList.contains('in')) playWall(); else wall.dataset.pending = '1';
+  if (wallActive) playWall(true); else wall.dataset.pending = '1';
 }
-function playWall(){
+function playWall(quick){
   const wall = $('wall'), track = wall && wall.querySelector('.track'); if (!track) return;
-  wall.dataset.pending = ''; cancelAnimationFrame(wallRaf); wallTimers.forEach(clearTimeout); wallTimers = [];
+  wall.dataset.pending = ''; cancelAnimationFrame(wallRaf); wallTimers.forEach(clearTimeout); wallTimers = []; if (wallAnim){ wallAnim.cancel(); wallAnim = null; }
   track.querySelectorAll('.wcard.dup').forEach(c => c.remove()); track.style.transform = '';
   const cards = [...track.children];
   // Faqat ko'rinib turgan dastlabki kartalar birma-bir chiqadi, qolganlari tayyor turadi
-  const FIRST = 4;
+  const FIRST = quick ? 0 : 4;
   cards.forEach((c, i) => { if (i < FIRST){ c.style.opacity = 0; c.style.transform = 'translateY(22px) scale(.96)'; } else { c.style.opacity = 1; c.style.transform = 'none'; } });
   cards.slice(0, FIRST).forEach((c, i) => wallTimers.push(setTimeout(() => {
     c.animate([{ opacity:0, transform:'translateY(22px) scale(.96)' }, { opacity:1, transform:'none' }], { duration:750, easing:'cubic-bezier(.2,.7,.2,1)', fill:'forwards' });
     c.style.opacity = 1; c.style.transform = 'none';
-  }, 300 + i * 450)));
+  }, 300 + i * 350)));
   // hammasi chiqqach — sekin uzluksiz yuqoriga suriladi (agar sig'masa)
   wallTimers.push(setTimeout(() => {
     const H = wall.clientHeight, h1 = track.scrollHeight;
     if (h1 <= H - 10) return;
     cards.forEach(c => { const d = c.cloneNode(true); d.classList.add('dup'); d.classList.remove('mine'); d.style.opacity = 1; d.style.transform = 'none'; track.appendChild(d); });
     const gap = parseFloat(getComputedStyle(track).rowGap) || 12, loopH = h1 + gap;
-    let y = 0, last = performance.now();
-    (function step(now){ const dt = Math.min(64, now - last); last = now; y = (y + dt * .035) % loopH; track.style.transform = `translate3d(0,${-y}px,0)`; wallRaf = requestAnimationFrame(step); })(last);
-  }, 300 + Math.min(cards.length, FIRST) * 450 + 1000));
+    // Brauzerning o'z animatsiyasi (GPU) — telefon tejash rejimida ham to'xtamaydi
+    if (wallAnim) wallAnim.cancel();
+    wallAnim = track.animate([{ transform:'translate3d(0,0,0)' }, { transform:`translate3d(0,${-loopH}px,0)` }],
+      { duration: loopH / .035, iterations: Infinity, easing: 'linear' });
+  }, quick ? 50 : 300 + Math.min(cards.length, FIRST) * 350 + 400));
 }
 // Tilaklar bo'limiga kirilganda devor qaytadan birma-bir o'ynaydi
-new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting && document.body.classList.contains('opened')) playWall(); }), { root: slides, threshold: .45 })
+// Faqat bo'limga haqiqatan qayta kirilganda boshidan o'ynaydi (telefonda kichik siljishlar aylanishni to'xtatmasin)
+let wallActive = false;
+new IntersectionObserver(es => es.forEach(e => {
+  if (!document.body.classList.contains('opened')) return;
+  if (e.intersectionRatio >= .45 && !wallActive){ wallActive = true; playWall(); }
+  else if (e.intersectionRatio < .05){ wallActive = false; }
+}), { root: slides, threshold: [0, .05, .45] })
   .observe(document.querySelector('[aria-label="Tilaklar"]'));
 const ME = /do\W?st\W?yor|dostyor|дўстёр|дустёр|достёр/i; // kuyovning sinov tilaklari devorga chiqmaydi
 function addWish(w){ if (!w || !w.wish || /^🧪|sinov/i.test(w.name) || ME.test(w.name)) return; const k = (w.name + '|' + w.wish).toLowerCase(); if (!HIDDEN.has(k)) wallItems.set(k, w); }
